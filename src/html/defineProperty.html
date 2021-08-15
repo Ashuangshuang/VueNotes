@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>数据代理-Object.defineProperty方法</title>
+</head>
+<body>
+<script type="text/javascript">
+	let number = 18;
+	let person = {
+	  name: '李娜',
+		sex: '女',
+	};
+
+	// 向对象中添加属性
+	Object.defineProperty(person, 'age', {
+	  // value: number,
+		// enumerable: true, // 控制属性是否可以枚举（遍历）
+		// writable: true, // 是否可以修改
+		// configurable: true, // 是否可以删除
+
+		get() { // 当有对象读取age属性，get函数（getter）会被调用
+		  return number;
+    },
+		set(value) { // 有对象修改age属性，set函数（setter）会被调用，参数为修改的具体值
+			number = value; // 修改后再访问person.age就会变成新的值
+		}
+  })
+	console.log(person);
+
+  // 1、Vue中的数据代理，通过vm对象代理data中的属性操作
+	// 2、数据代理的好处，更加方便操作data数据，不代理的话可以通过vm._data访问
+	// 3、原理：
+	// 		通过Object.defineProperty()把data中的所有属性添加到vm上
+	// 		为每个添加的属性都指定getter/setter
+	// 		在getter/setter内部操作data中的数据
+
+</script>
+
+</body>
+</html>
