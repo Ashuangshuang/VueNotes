@@ -518,6 +518,8 @@ Vue.use(plugins); // install()会自动调用
 ## 自定义事件
 - 绑定
 > 通过`this.$emit()`触发
+> 
+> 给组件写原生事件，组件会当成自定义事件，添加`@click.native`修饰符会默认绑定组件的最外层容器上
 ```html
 <Student @getName="getName" />
 <!--ref绑定 可以实现异步绑定-->
@@ -546,6 +548,167 @@ Vue.use(plugins); // install()会自动调用
 > 传入数组解绑多个自定义事件
 > 
 > 不传参数解绑所有组件实例的自定义事件
+
+## 全局事件总线（GlobalEventBus）
+1. 一种组件间的通信方式，适用于任意组件间通信
+2. 安装全局事件总线
+```js
+// main.js
+new Vue({
+  beforeCreate() {
+    Vue.prototype.$bus = this; // this指向Vue的实例，就可以使用$on/$emit/$off方法了
+  }
+});
+```
+3. 使用事件总线
+- 接收数据：A组件想要接收数据，则在A组件中给`$bus`绑定自定义事件，事件的回调留在A组件中
+```js
+export default {
+  mounted() {
+    this.$bus.$on('hello', this.demo)
+  },
+  methods: {
+    demo(data) {
+      // data为接收的数据
+    }
+  }
+}
+```
+- 提供数据：`this.$bus.$emit('hello', 'data')`
+4. 最好在`beforeDestroy`钩子中，通过`this.$bus.$off('hello')`解绑当前组件所用到的事件，因为组件销毁时绑定的自定义事件会销毁，但是`this.$bus`上绑定的事件不会自动销毁
+
+## 消息订阅与发布（pubsub）
+1. 一种组件间的通信方式，适用于任意组件间通信
+2. 使用步骤
+  - 安装pubsub`npm i pubsub-js`
+  - 引入`import pubsub from 'pubsub-js'`
+  - 接收数据
+```js
+export default {
+  mounted() {
+    // 订阅消息
+    this.pubId = pubsub.subscibe('hello', this.demo)
+  },
+  methods: {
+    demo(msgName, data) {
+      // msgName：消息名 data为接收的数据
+    }
+  }
+}
+``` 
+  - 提供数据：`pubsub.publish('hello', 'data')`
+  - 最好在`beforeDestroy`钩子中，通过`pubsub.unsubscibe(this.pubId)`取消订阅
+
+## this.$nextTick()
+> 在执行方法时不会改变数据就更新视图，会在方法体全部执行完之后再更新视图
+> 
+> 在下一次DOM更新结束后再执行回调函数
+> 
+> 当改变数据后，要基于更新后的DOM进行某些操作时使用
+
+## 过渡与动画
+> 使用`transition`标签包裹元素，并配置`name`属性作为样式的标识
+> 
+> 通过配置进入和离开的固定类名语法和样式实现
+> 
+> 若多个元素需要过渡，需要使用`<transition-group>`，且每个元素都要写唯一`key`值
+- 过渡写法
+```vue
+<template>
+  <transition name="hello" appear>
+    <h1>Hello</h1>
+  </transition>
+</template>
+<style scoped>
+h1 {
+  background-color: orange;
+}
+/*进入的起点、离开的终点*/
+.hello-enter, .hello-leave-to {
+  transform: translateX(-100%);
+}
+/*进入的终点、离开的起点*/
+.hello-enter-to, .hello-leave {
+  transform: translateX(0);
+}
+.hello-enter-active, .hello-leave-active {
+  transition:0.5s linear;
+}
+</style>
+```
+- 动画写法
+```vue
+<template>
+  <transition name="hello" appear>
+    <h1>Hello</h1>
+  </transition>
+</template>
+<style scoped>
+h1 {
+  background-color: orange;
+}
+.hello-enter-active {
+  animation: hello 0.5s linear;
+}
+.hello-leave-active {
+  animation: hello 0.5s linear reverse;
+}
+@keyframes  hello{
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+</style>
+```
+## 插槽
+> 让父组件可以向子组件指定位置插入html结构，通过作用域插槽子组件可以向父组件传入数据
+- 默认插槽
+```vue
+<div>
+  <slot>默认值</slot>
+</div>
+<!--使用-->
+<Student>
+  <p>学生姓名</p>
+</Student>
+```
+- 具名插槽
+> ❗️最新写法`v-solt:footer`只能应用在`template`或者组件上
+```vue
+<div>
+  <slot name="center">默认值</slot>
+  <slot name="footer">默认值</slot>
+</div>
+<!--使用-->
+<Student>
+  <p slot="center">斯黛拉</p>
+  <p slot="footer">娜依扎</p>
+  <p slot="footer">空白格</p>
+  <template v-solt:footer></template>
+</Student>
+```
+- 作用域插槽
+> 必须在`template`上面写`scope="data"`或者新写法`slot-scope="{ games }"`才能接收到数据
+> 
+> 也可以起名字
+```vue
+<template>
+  <div>
+    <slot :games="games">默认值</slot>
+  </div>
+</template>
+<!--使用-->
+<Category>
+  <template scope="data">
+   <ul>
+     <li v-for="it in data.games">{{it}}</li>
+   </ul> 
+  </template>
+</Category>
+```
 
 
 
