@@ -285,6 +285,267 @@ new Vue({
 - `v-once` 没有值，所在节点初次动态渲染后，就视为静态内容，以后数据改变不会引起所在结构的更新，可以用于优化性能
 - `v-pre` 没有值，跳过所在节点编译过程，可用在没有使用指令语法、插值语法的节点，加快编译
 
+## 自定义指令
+> 主要操作DOM元素
+> 
+> ❗️指令中函数的`this`都是`window`，不是`vm`
+```html
+<body>
+<div v-big="n"></div>
+<input type="text" v-fbind:value="n">
+<!--多个单词指令名-->
+<div v-big-number="n"></div>
+</body>
+<script type="text/javascript">
+  // 全局 别的Vue实例也可以使用
+  Vue.directive('fbind', {
+    bind(element, binding){
+      element.value = binding.value;
+      }, 
+    inserted(element, binding){
+      element.focus();
+      }, 
+    update(element, binding) {
+      element.value = binding.value;
+    }
+  });
+  new Vue({
+    data: {
+      n: 1, 
+    },
+    // 局部指令
+    directives: {
+      // 函数写法（默认就是bind和update时调用）
+      // 指令与元素成功绑定时（第一次加载时会被调用）
+      // 指令所在的模板被重新解析时会被调用（当有数据发生变化时）
+      big(element, binding){
+        element.innerText = binding.value * 10;
+      },
+      // 对象写法内包含钩子函数
+      fbind: {
+        // 指令与元素成功绑定时调用，注意此时元素并没有插入页面
+        bind(element, binding){
+          element.value = binding.value;
+        },
+        // 指令元素被插入到页面时调用
+        inserted(element, binding){
+          element.focus(); // 默认自动获取焦点
+        },
+        // 指令所在的模板被重新解析时调用
+        update(element, binding) {
+					element.value = binding.value;
+				}
+      },
+			'big-number'(element, binding){
+				element.innerText = binding.value * 10;
+			},
+    },
+  });
+</script>
+```
+## 生命周期函数
+初始化
+- `beforeCreate` 无法通过vm访问data和methods，*在数据监测、数据代理之前执行*
+- `created` `this`可以访问`data`和`methods`，*在数据监测、数据代理之后执行，然后开始解析模板生成虚拟DOM*
+- `beforeMount` 页面呈现的是未经Vue编译的DOM结构，所有对DOM的操作，最终都不生效，*在将内存中的虚拟DOM转换为真是的DOM插入页面之前执行*
+- ❗️`mounted` 页面呈现的是经过Vue编译的DOM结构，对DOM操作均生效，一般在此进行开启定时器，发送网络请求等初始化操作，*完成模板解析并把初始的真实DOM放到页面后调用，只调用一次*
+
+更新
+- `beforeUpdate` 数据是新的，但是页面是旧的，页面和数据未保持同步，*新数据和旧数据进行比对，完成页面更新之前执行*
+-  `updated` 数据、页面都是新的
+
+销毁
+- ❗`beforeDestroy` vm中的data、methods、指令都处于可用状态，但是一般不会在这里操作数据，即使操作数据也不会出发更新，一般在此阶段关闭定时器，解绑自定义事件等收尾工作
+- `destroyed` 销毁完毕，销毁后自定义事件会失效，但是原生DOM事件依然有效
+
+## 组件
+> 实现应用中局部功能代码和资源的集合
+> 
+> 组件中定义的`data`必须使用函数式定义`data(){ return {  }}`，避免组件复用，数据存在引用关系
+> 
+> 如果使用对象定义，内存中存储的是同一个地址，有一个值改变，所有地方都会改变
+
+### 非单文件组件
+一个文件中包含n个组件
+```js
+// 创建组件使用Vue.extend()方法
+// el 不要写，data必须写成函数式，使用template定义结构
+// 简写 const school = {}; Vue会自动执行Vue.extend
+const school = Vue.extend({
+  template: `
+    <div>
+      <h2>{{name}}</h2>
+      <h2>{{address}}</h2>
+    </div>
+  `,
+  data() {
+    return {
+      name: '曼哈顿',
+      address: '北京朝阳'
+    }
+  }
+});
+
+new Vue({
+  // 局部注册
+  components: {
+    school
+  }
+});
+
+// 全局注册
+Vue.component('school', school);
+```
+### VueComponent
+- `school`本身是一个名为`VueComponent`的构造函数，是`Vue.extent()`中返回的
+- 在写`<school /> `时，Vue解析时会自动创建`school`组件的实例对象，即执行`new VueComponent(opts)`
+- ❗在每次调用`Vue.extent()`时，返回的都是一个新创建的`VueComponent`
+- 组件配置中的定义的函数`this`指向都是【`VueComponent`的实例对象，简称vc】，`new Vue(opts)`配置中的函数`this`指的是【`Vue`的实例对象，即vm】，vc与vm类似
+- ❗定义组件时不可传入`el`参数，`el`只能在`new Vue(opts)`时传入
+
+### ❗Vue与VueComponent的关系
+- VueComponent的显示原型对象上的隐式原型指向Vue的显示原型对象
+```js
+VueComponent.prototype.__proto__ === Vue.prototype;
+```
+- 这样可以让组件实例对象`vc`可以访问`Vue`原型上的属性、方法
+
+### 单文件组件
+一个文件中包含一个组件
+
+## Vue CLI
+- 全局安装`npm install -g @vue/cli`后可使用`vue`命令
+- 创建项目`vue create vue-test`
+- `yarn serve` 启动项目
+- 在`vue.config.js`中修改配置文件
+
+## ref属性
+- 应用在html标签上获取的是真是的DOM元素
+- 应用在组件标签上获取的是组件的实例对象（vm）
+- 通过`this.$refs.school`获取
+
+## props
+组件内部不能修改传入的`props`，如需修改将`props`放一份到`data`中，修改`data`
+```js
+export default {
+  data() {
+    return {
+      myName: this.name,
+    }
+  },
+  props: {
+    name: {
+      type: String,
+      required: true,
+      default: 'lala'
+    }
+  } 
+}
+```
+## mixins混入
+把多个组件公用的配置项提取成一个混入对象
+- 生命周期函数如果混入对象、和组件内部都写了，那么两者都会执行，先执行混入对象中的钩子
+- 值为对象的选项，例如 methods、components 和 directives，两者都写时，以组件中的为准
+```js
+const myMixin = {
+  data() {
+    return {
+      name: 'lala'
+    }
+  },
+  created () {
+   console.log('myMixin-created');
+  },
+  methods: {
+    hello() {
+      console.log('hello from mixin!')
+    }
+  }
+};
+
+export default {
+  // 局部混入
+  minxins: [myMixin],
+  data() {
+    return {
+      name: '赛林达',
+    }
+  },
+}
+// 全局混入
+Vue.mixin(myMixin)
+```
+## 插件
+> 用于增强Vue
+> 
+> 包含`install()`方法的一个对象，第一个参数是`Vue`，后面是使用者传递的参数
+```js
+// plugins.js 定义插件
+export default {
+  install(Vue, options) {
+    // 添加全局过滤器
+    Vue.filter();
+    Vue.directive();
+    // 添加实例方法
+    Vue.prototype.$myMethod = function() {}
+  }
+}
+// main.js
+// 使用插件
+Vue.use(plugins); // install()会自动调用
+```
+## style scoped
+> 让样式在局部生效，防止冲突
+> 
+> 在style标签中写`scoped`属性表示当前样式只应用于当前组件
+> 
+> 编译后会在写样式的标签上生成一个属性，使用`demo[data-xxxxx]`作为新的类名
+> 
+> `npm view less-loader versions` 显示`less-loader`的版本记录
+```html
+<style scoped>
+  .demo {
+    background: orange;
+  }
+</style>
+<!--需要安装less-loader-->
+<style lang="less">
+	.demo {
+		background: orange;
+	}
+</style>
+```
+## 自定义事件
+- 绑定
+> 通过`this.$emit()`触发
+```html
+<Student @getName="getName" />
+<!--ref绑定 可以实现异步绑定-->
+<Student ref="student" />
+<script type="text/javascript">
+  new Vue({
+    methods: {
+      getName(){
+        
+      }
+    },
+    mounted() {
+      this.$refs.student.$on('getName', this.getName);
+      
+      // 注意：这种写法this指向是Student组件实例，回调函数写成箭头函数this指向Vue实例
+      this.$refs.student.$on('getName', function() {
+      });
+      // this.$refs.student.$once 只绑定一次，只能调用一次
+    }
+  })
+</script>
+```
+- 解绑
+> 通过`this.$off()`解绑自定义事件
+> 
+> 传入数组解绑多个自定义事件
+> 
+> 不传参数解绑所有组件实例的自定义事件
 
 
 
