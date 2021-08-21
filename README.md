@@ -137,15 +137,15 @@ new Vue({
 ```html
 <body>
 <!--字符串写法-->
-<div cladd="basic" :class="normal"></div>
+<div class="basic" :class="normal"></div>
 <!--数组写法-->
-<div cladd="basic" :class="classArr"></div>
+<div class="basic" :class="classArr"></div>
 <!--对象写法-->
-<div cladd="basic" :class="classObj"></div>
+<div class="basic" :class="classObj"></div>
 
-<div cladd="basic" :style="{fontSize: fSize + 'px'}"></div>
-<div cladd="basic" :style="styleObj"></div>
-<div cladd="basic" :style="styleArr"></div>
+<div class="basic" :style="{fontSize: fSize + 'px'}"></div>
+<div class="basic" :style="styleObj"></div>
+<div class="basic" :style="styleArr"></div>
 </body>
 <script type="text/javascript">
   new Vue({
@@ -358,6 +358,11 @@ new Vue({
 - ❗`beforeDestroy` vm中的data、methods、指令都处于可用状态，但是一般不会在这里操作数据，即使操作数据也不会出发更新，一般在此阶段关闭定时器，解绑自定义事件等收尾工作
 - `destroyed` 销毁完毕，销毁后自定义事件会失效，但是原生DOM事件依然有效
 
+路由组件独有的生命周期，用于捕获路由的激活状态（显示在界面上）
+- `activated` 被激活时触发
+-  `deactivated` 失活时触发
+
+
 ## 组件
 > 实现应用中局部功能代码和资源的集合
 > 
@@ -420,8 +425,8 @@ VueComponent.prototype.__proto__ === Vue.prototype;
 - 在`vue.config.js`中修改配置文件
 
 ## ref属性
-- 应用在html标签上获取的是真是的DOM元素
-- 应用在组件标签上获取的是组件的实例对象（vm）
+- 应用在html标签上获取的是真实的DOM元素
+- 应用在组件标签上获取的是组件的实例对象（vc）
 - 通过`this.$refs.school`获取
 
 ## props
@@ -709,10 +714,161 @@ h1 {
   </template>
 </Category>
 ```
+## Vuex
+- 重要组成部分`state`、`actions`、`mutations`、`getters`全部由`store`管理
+- `state`存放共享数据，通过`this.$store.state`获取
+- `actions`写逻辑判断、异步请求等，再通过`context.commit`调用`mutations`
+- `mutations`中操作state，页面可直接通过`this.$store.commit`调用
+- `getters`与`computed`类似，页面通过`this.$store.getters`访问
+- 工作流程：页面通过`dispatch`调用`action`，`action`通过`commit`调用`mutation`，`mutation`中更新`state`，页面更新
 
+## VueRouter
+- `<router`<router-view>`-link to="/about" active-class="active">`显示跳转链接，最终会被解析成`<a>`
+- 显示定义路由对应的组件名
+- 不显示的路由组件会被销毁，会执行`beforeDestroy`钩子
+- 路由组件上的`this`会多了`$route`和`$router`属性，每个路由组件的`$router`是相同的，`$route`会存放自己的路由信息
+- ❗️❗️❗️配置多级路由`children`中的`path`不写`/`
+- ` <router-link replace>`，控制路由跳转操作浏览器历史记录的模式
+  - 浏览器的历史记录写入有两种形式，`push`和`replace`
+  - 默认路由走的是`push`压栈操作，追加历史记录，前进后退通过改变指针的指向
+  - `replace`是替换当前记录（栈顶的记录），不走`push`操作
+- 编程式路由通过`this.$router.push/replace/go`方法操作
+  - `this.$router.push()`跳转
+  - `this.$router.replace()`替换
+  - `this.$router.forward()` 前进
+  - `this.$router.back()` 后退
+  - `this.$router.go()` 传入数字参数，正数前进n步，负数后退n步
+- 缓存路由组件通过`<keep-alive include="News"><router-view></router-view></keep-alive>`实现
+  - 让不展示的路由组件保持挂载，不被销毁
+  - `include`中配置的是组件中的`name`，配置后切换路由时真实DOM将不会销毁，一般用于需要缓表单数据的组件
+```vue
+<template>
+  <div>
+    <!--跳转路由传入query参数-->
+    <!--name: "guanyu"-->
+    <router-link
+      replace
+      :to="{ 
+        path: '/about',
+        query: {
+          id: '',
+          title: ''
+      }
+    }">路由名称</router-link>
+    <!--跳转路由传入params参数对象写法，不能配置path，只能传入name-->
+    <router-link :to="{
+      name: 'guanyu',
+      query: {
+        id: '',
+        title: ''
+      }
+  }"></router-link>
+  </div>
+</template>
 
+<script >
+export default new VueRouter({
+  routes: [
+    {
+      name: 'guanyu', // 命名路由，在to跳转时可以写成:to="{ name: guanyu }"
+      path: '/about',
+      component: About,
+      meta: { // 配置元数据，自定义的属性在此配置
+        title: '关于',
+        isAuth: false,
+      },
+      // 独享路由守卫，只有前置无后置
+      beforeEnter: (to,from,next) => {
+        
+      }
+    },
+    {
+      path: '/home',
+      component: Home,
+      children: [
+        {
+          path: 'news', // 没有 /
+          component: News,
+        }, {
+          path: 'message',
+          component: Message,
+          children: [{
+            path: 'detail/:id', // 配置params参数
+            component: Detail,
+            // 对象写法：以props的形式传给Detail组件，组件内部在props内部获取
+            // props: {
+            //   a:'1',
+            //   b: 'hello',
+            // },
+            
+            // props: true, // 布尔写法，会将页面路由上的params参数一props的形式传给Detail组件，不会传入query参数
+           
+            // 函数写法，最强大，自定义页面的props接收的参数
+            props($route) {
+              const { query: { id }, params: {  } } = $route;
+              return { id }
+            }
+          }],
+        }
+      ]
+    }
+  ]
+})
+</script>
+```
+### 路由守卫
+- 全局路由守卫
+```js
+// 前置守卫 初始化时、每次路由切换前执行
+router.beforeEach((to,from,next) => {
+  if (to.meta.isAuth) { // 权限控制
+    if(localStorage.getItem("school") === 'hafou') {
+      next(); // 放行
+    } else {
+      alert('无权限查看')
+    }
+  } else {
+    next();
+  }
+})
 
+// 后置守卫 初始化时、每次路由切换后执行 无next参数
+router.afterEach((to,from) => {
+  document.title = to.meta.title;
+})
+```
+- 独享路由守卫
+> 在`router`中通过` beforeEnter`配置只有前置无后置
+```js
+const router = [{
+  beforeEnter: (to,from,next) => {}
+}];
+```
+- 组件内路由守卫
+> 写在组件内部
+```js
+export default {
+  // 通过路由规则，进入该组件时调用，直接使用组件引入的方式不执行
+  beforeRouteEnter(to, from, next) {
+    next(); // 需要调用next()才能进入
+  },
+  // 通过路由规则，离开该组件时调用，注意不是后置路由守卫，离开时才调用
+  beforeRouteLeave(to, from, next) {
+    next(); // 需要调用next()才能离开
+  }
+}
 
-
-
-
+```
+### 路由器的两种工作模式
+可以使用`mode: 'history'`配置
+- `hash`模式
+  - 运行项目和上线时url上会显示#，`url`中`#`以即后面的内容就是hash值
+  - 在项目上线刷新页面时，发送http请求时hash值不会带给服务器
+  - 将地址通过第三方手机APP分享，APP校验严格，地址会被标记为不合法
+  - 兼容性比较好
+- `history`模式，有404问题
+  - 地址中没有`#`
+  - 部署上线刷新页面时会有404问题，因为将url上的地址全部带给了服务器，服务器中找不到对应的资源
+  - 需要后端人员配合解决部署刷新404的问题，node js express中可以引入第三方库`connect-history-api-fallback`解决
+  - 兼容性略差
+  
