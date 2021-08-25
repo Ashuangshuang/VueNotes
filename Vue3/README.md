@@ -515,4 +515,61 @@ export default {
 }
 </script>
 ```
+## 其他
+### 全局API的转移
+Vue2配置
+```js
+// 注册全局组件
+Vue.component('myButton', {
+  data() {
+    
+  },
+  template: `<button></button>`
+});
+// 注册全局指令
+Vue.directive('focus', {
+  inserted: el => el.focus()
+})
+```
+Vue3 将全局的api，即`Vue.xxx`调整到应用实例`app`上了
+
+| Vue2全局 API（Vue） | Vue3 实例 API（app） |
+|  ----  | ----  |
+| Vue.config.xxx  | app.config.xxx  |
+| Vue.config.productionTip  | 移除  |
+| Vue.component | app.component |
+| Vue.directive | app.directive |
+| Vue.mixin | app.mixin |
+| Vue.use | app.use |
+| Vue.protoType | app.config.globalProperties |
+
+### 其他改变
+- data选项应始终被声明一个函数
+- 过渡类名的更改
+```css
+/*Vue2*/
+.v-enter,
+.v-leave-to {
+  
+}
+/*Vue3*/
+.v-enter-from,
+.v-leave-to {
+
+}
+```
+- 移除`keyCode`作为`v-on`的修饰符，同时也不支持`config.keyCodes`
+- 移除`v-on.native`修饰符
+```vue
+<!--父组件绑定事件-->
+<my-component @close="close" @click="click" />
+
+<script>
+// 子组件中声明自定义事件
+export default {
+  emits: ['close'], // 不声明click默认认为原生事件
+}
+</script>
+```
+- 移除过滤器 filter，建议使用方法和 computed 替代
 
