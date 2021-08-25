@@ -30,7 +30,8 @@
   - 不要与vue2配置混用
   - vue2配置中可以访问setup中属性、方法，但在setup中不能访问2的配置
   - 如果有重名，setup优先
-  - setup不能是一个async函数
+  - setup不能是一个async函数，因为async函数返回不在返回一个对象，而是promise，模板看不到return 中的属性
+  - ❗️❗❗️但是️，后期也可以返回一个 Promise 实例，但是需要 `suspense` 和 `defineAsyncComponent`的配合
 - 执行时机在`beforeCreate`之前执行一次，this是`undeined`
 - 参数
   - props：值为对象，包含组件外部传递过来的，且组件内部声明接收了的属性
@@ -335,6 +336,183 @@ export default {
 - 什么时候使用
   - 对象数据结构比较深，但是只是外层属性变化，使用 shallowReactive
   - 对象数据后续功能不会修改对象中的属性，而是生成新的对象来替换，使用 shallowRef
+  
+### readonly 与 shallowReadonly
+- readonly 让一个响应式数据变为只读的（深只读）
+- shallowReadonly 让一个响应式数据变为只读的（浅只读）
+- 应用场景：不希望数据被修改时
+
+### toRaw 与 markRaw
+- toRaw
+  - 将一个`reactive`生成的响应式对象转换为普通对象
+  - 使用场景：用于读取响应式对象对应的普通对象，对这个普通对象的所有操作，不会引起页面更新
+- markRaw
+  - 标记一个对象，使其永远不会在成为响应式对象
+  - 使用场景
+    - 有些值不应该设成响应式，例如复杂的第三方库
+    - 当渲染不可变的数据源大列表时，跳过响应式转换可以提高性能
+```vue
+<script>
+import { reactive, markRaw, toRaw } from 'vue';
+export default {
+  setup() {
+    let p = reactive({
+      name: 'Kitty',
+      age: 18,
+      job: {
+        salary: 20,
+        job2: {
+          salary: 18
+        }
+      }
+    });
+    function addCar() {
+      let car = { name: '奔驰' };
+      p.car = car; // 响应式数据
+      p.car = markRaw(car); // car不是响应式数据
+      const raw = toRaw(p); // 将Proxy对象转换为原始对象，失去响应式
+    }
+  }
+}
+</script>
+```
+### customRef 自定义ref
+创建一个自定义ref，对其依赖项追踪和更新出发进行显示控制
+```js
+import { customRef } from "vue";
+function useDebouncedRef(value, delay = 200) {
+  let timeout;
+  // 通过customRef实现自定义
+  return customRef((track, trigger) => {
+    return { // 必须返回对象
+      get() {
+        track() // 告诉Vue 这个值需要被"追踪"
+        return value
+      },
+      set(newValue) {
+        clearTimeout(timeout) // 防抖动
+        timeout = setTimeout(() => {
+          value = newValue  // 将新的值赋值，get再调用就返回新的值
+          trigger() // 告诉Vue更新页面
+        }, delay)
+      }
+    }
+  })
+}
+export default {
+  setup() {
+    return {
+      text: useDebouncedRef('hello')
+    }
+  }
+}
+```
+### provide 与 inject
+- 实现祖孙组件间的通信
+- 父组件使用`provide`提供数据，后代组件使用`inject`使用数据
+- 一般隔代传数据使用，父子使用`props`
+
+父组件
+```js
+setup() {
+  ...
+  let car = reactive({ name: '路虎', price: '100W' });
+  provide('car', car)
+}
+```
+孙组件
+```js
+setup(props, context) {
+  ...
+  const car = inject('car');
+  return { car }
+}
+```
+### 响应式数据的判断
+- `isRef` 是否为ref对象
+- `isReactive` 是否由`reactive`创建的响应式代理
+- `isReadonly` 是否由`readonly`创建的只读代理
+- `isProxy` 是否由`reactive`、`readonly`方法创建的代理，`readonly`创建时不会改变数据类型，还是`Proxy`对象
+
+## Composition API的优势
+- Options API 存在的问题
+  - 新增、修改一个需求，就需要分别在data、methods、computed里修改
+- 组合式 API 的优势
+  - 可以将每个功能分别写成hook函数，更加优雅的组织代码，让相关功能的代码有序的组织在一起
+
+## 新组件
+### Fragment
+- Vue2中组件必须要有根标签
+- Vue3中组件可以没有根标签，内部会将多个标签包含在一个 Fragment 虚拟元素中
+- 好处：可以减少标签层级和内存占用
+
+### Teleport
+传送标签，能将组件的HTML结构移动到指定位置
+```vue
+<template>
+  <!--to 是目标位置，也可以是id选择器-->
+  <teleport to="body">
+    <div v-if="isShow" class="mask">
+      <div class="dialog">
+        <h3>弹窗</h3>
+      </div>
+    </div>
+  </teleport>
+</template>`
+```
+### Suspense
+悬疑的意思，等待异步组件时渲染的一些额外内容，有更好的用户体验
+
+使用步骤
+  - 异步引入组件
+```js
+import { defineAsyncComponent } from 'vue';
+const Child = defineAsyncComponent(() => import('./Child.vue'));
+```
+  - 使用`suspense`包裹组件，并配置好`default`和`fallback`
+```vue
+<template>
+  <div class="app">
+    <suspense>
+      <template #default>
+        <Child />
+      </template>
+      <template #fallback>
+        <h4>加载中...</h4>
+      </template>
+    </suspense>
+  </div>
+</template>
 
 
+<!--Child.vue-->
+<template>
+  <div class="app">
+    <h3>{{num}}</h3>
+  </div>
+</template>
+<script>
+export default {
+  setup() {
+    let num = ref(0);
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        resolve({num})
+      }, 3000)
+    })
+  }
+  
+  // 使用async
+  async setup() {
+    let num = ref(0);
+    const p = new Promise((resolve, reject) => {
+      setTimeout(() => {
+        resolve({num})
+      }, 3000)
+    })
+    return await p;
+  }
+}
+</script>
+```
 
